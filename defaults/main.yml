@@ -1,0 +1,55 @@
+---
+# defaults file for ansible_newvm_mount
+
+# Strict policy: If the restore options cannot be satified, fail operation:
+strict_policy: no
+
+# Restore time for the VM.
+act_restoretime: ''
+
+#Actifio Appliance
+act_appliance: ''
+
+# Actifio Username
+act_user: admin
+
+# Password
+act_pass: password
+
+# VendorKey, this can be requested from the Customer Success Engineering team via a case.
+act_vendorkey: ''
+
+# Application Name
+act_appname: ''
+
+# Actifio Image type (snapshot, dedup, dedupasync, liveclone and syncback)
+# if this is not specified, backups will be searched from all the available
+# images
+act_job_class: ''
+
+# MountImage operations to be non-blocking
+act_nowait_mount: false
+
+# Actifio image name, option to specify the image name or the restore time 
+act_imagename: ''
+
+# Actifio mount image label
+act_imagelabel: 'Ansible_Playbook'
+
+# For NewVM Mount
+# vCenter Server or ESXi host
+vm_mgmtserver: ''
+# Source ESXi host
+vm_src_esxhost: ''
+# Target ESXi host
+vm_tgt_esxhost: ''
+# VM name for provisioning
+vm_name: ''
+# Target datastore name
+vm_datastore: ''
+# Type of RDM volumes (Virtual RDM is default)
+vm_physicalrdm: false 
+# Restore VM MAC Address
+vm_restoremac: false
+# Map VMDKs to all ESXi hosts
+vm_mapdiskstoallesx: false

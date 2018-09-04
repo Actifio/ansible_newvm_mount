@@ -1,0 +1,10 @@
+---
+# vars file for actifio_agent
+
+act_api: "https://{{ act_appliance }}/actifio/api"
+
+act_api_task: "{{ act_api }}/task"
+
+act_api_info: "{{ act_api }}/info"
+
+act_api_login: "{{ act_api }}/login?name={{ act_user }}&password={{ act_pass }}&vendorkey={{ act_vendorkey }}"
