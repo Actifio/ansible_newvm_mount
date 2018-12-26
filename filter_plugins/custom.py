@@ -2,6 +2,12 @@ __author__ = 'kosala atapattu'
 import time
 from ansible import errors
 
+def net_interface_list(values=[]):
+    return ','.join(str(':'.join(i)) for i in values)
+
+def array_to_csv(values=[]):
+    return ','.join(values)
+
 def get_image_name (values, resttime, strict):
     from datetime import datetime
     from ansible import errors
@@ -21,8 +27,11 @@ def get_image_name (values, resttime, strict):
     preferedimg = None
 
     snap_pref_time = None
+    snap_pref_img = None
     lc_pref_time = None
     mount_pref_time = None
+    onvault_pref_time = None
+    dedup_pref_time = None
 
     for image in values['results']:
         try:
@@ -43,6 +52,9 @@ def get_image_name (values, resttime, strict):
         mountedhost = image['json']['result']['mountedhost']
         # Job class of the image
         jobclass = image['json']['result']['jobclass']
+        # For skipping further mountedhost check if liveclone
+        if jobclass == 'liveclone':
+            mountedhost = '0'
 
         if componenttype == '0' and mountedhost == '0':
             # We need to track the previous closest image to check the this image is close in time
@@ -84,21 +96,37 @@ def get_image_name (values, resttime, strict):
                 elif jobclass == "mount":
                     mount_pref_time = preferedtime
                     mount_pref_img = preferedimg
-            
-	            if lc_pref_time == snap_pref_time:
-	                preferedimg = snap_pref_img
-	            elif mount_pref_time == snap_pref_time:
-	                preferedimg = snap_pref_img
-            	
+                elif jobclass == "OnVault":
+                    onvault_pref_time = preferedtime
+                    onvault_pref_img = preferedimg
+                elif jobclass == "dedup":
+                    dedup_pref_time = preferedtime
+                    dedup_pref_img = preferedimg
+                    
+    if snap_pref_img != None:        
+        if lc_pref_time == snap_pref_time:
+            preferedimg = snap_pref_img
+        elif mount_pref_time == snap_pref_time:
+            preferedimg = snap_pref_img
+        elif onvault_pref_time == snap_pref_time:
+            preferedimg = snap_pref_img
+        elif dedup_pref_time == snap_pref_time:
+            preferedimg = snap_pref_img
 
     if preferedimg != None:
         return preferedimg['json']['result']['backupname']
     else:
         return ""
 
+def ret_no_of_result (results):
+    return len(results)
+
 class FilterModule(object):
     def filters(self):
         return {
-            'get_image_name': get_image_name
+            'net_interface_list': net_interface_list, 
+            'get_image_name': get_image_name, 
+            'array_to_csv': array_to_csv,
+            'ret_no_of_result': ret_no_of_result
             }
         

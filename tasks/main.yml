@@ -8,9 +8,8 @@
     - "{{ act_appname }}"
     - "{{ act_vendorkey }}"
     - "{{ act_restoretime }}"
-    - "{{ vm_mgmtserver }}"
-    - "{{ vm_src_esxhost }}"
     - "{{ vm_tgt_esxhost }}"
+    - "{{ vm_type }}"
     - "{{ vm_name }}"
     - "{{ vm_datastore }}"
 
@@ -25,25 +24,7 @@
   set_fact: 
     act_sessionid: "{{ logintoken.json.sessionid }}"
 
-# Filte out the applicationid based on the application_name and source_esxihost
-- name: get the application id
-  uri:
-    url: "{{ act_api_info }}/lsapplication?sessionid={{ act_sessionid }}&filtervalue={{ 'appname=' | urlencode }}{{ act_appname }}{{ '&auxinfo=' | urlencode }}{{ vm_src_esxhost  }}"
-    validate_certs: no
-    method: GET
-  register: lsapplication   
-
-# Extract the apptype of the application. Using this in mountimage
-- name: saving application class
-  set_fact: 
-    apptype: "{{ lsapplication.json.result[0].apptype }}"
-
-# Pre-flight check for apptype
-- fail:
-    msg: the variable "{{ item }}" should be defined.
-  when: apptype != 'VMBackup'
-  
-# try to ascertain the destination vCenter/ESXi management host ID
+# try to ascertain the destination vCenter or System Center management host ID
 - name: search for host_id from name
   block: 
     - uri:
@@ -55,7 +36,13 @@
         mgmt_host_id: "{{ mgmthostid.json.result.0.id }}"
       when: mgmthostid is defined
 
-# try to ascertain the destination ESXi host ID
+    - fail:
+        msg: "Unable to find a hostID with a vm_mgmthost description"
+      when: mgmt_host_id is not defined
+
+  when: vm_mgmtserver != ""
+
+# try to ascertain the destination ESXi or Hyper-V host ID
 - name: search for host_id from name
   block: 
     - uri:
@@ -67,52 +54,113 @@
         esx_host_id: "{{ esxhostid.json.result.0.id }}"
       when: esxhostid is defined
 
-# Fail if the host could not be found
-- name: fail when the management or target host cannot be found
-  fail:
-    msg: "Unable to find a hostID with a matching description" 
-  when: item == ''
-  with_items:
-    - "{{ mgmthostid }}"
-    - "{{ esxhostid }}"
+    - fail:
+        msg: "Unable to find a hostID with a vm_esxhost description"
+      when: esx_host_id is not defined
 
 - block:
-# Filter all the available backups if the jobclass is not specified
-    - block: 
+  # Filter out the hostid based on application_name and vm_type
+  - name: get vm's host id
+    block: 
+    - uri:
+        url: "{{ act_api_info }}/lshost?sessionid={{ act_sessionid }}&filtervalue={{ 'hostname=' | urlencode }}{{ act_appname }}{{ '&vmtype=' | urlencode }}{{ vm_type }}"
+        validate_certs: no
+        method: GET
+      register: lshost   
+
+    - set_fact: 
+        numlshost: "{{ lshost.json.result | ret_no_of_result }}"
+      when: lshost is defined
+
+    - set_fact: 
+        hostid: "{{ lshost.json.result[0].id }}"
+      when: numlshost == "1"
+
+
+  # Filter out the applicationid based on the application_name and source_esxihost
+  - name: try to get the application id with auxinfo
+    block:
+    - uri:
+        url: "{{ act_api_info }}/lsapplication?sessionid={{ act_sessionid }}&filtervalue={{ 'appname=' | urlencode }}{{ act_appname }}{{ '&auxinfo=' | urlencode }}{{ vm_src_esxhost  }}"
+        validate_certs: no
+        method: GET
+      register: lsapplication 
+
+    - set_fact:
+        numlsapp: "{{ lsapplication.json.result | ret_no_of_result }}"
+
+    - set_fact:
+        appid: "{{ lsapplication.json.result[0].id }}"
+      when: numlsapp != "0"
+
+    when: hostid is not defined 
+
+  # Filter out the applicationid based on the application_name and hostid
+  - name: try to get the application id with hostid
+    block:
+    - uri:
+        url: "{{ act_api_info }}/lsapplication?sessionid={{ act_sessionid }}&filtervalue={{ 'appname=' | urlencode }}{{ act_appname }}{{ '&hostid=' | urlencode }}{{ hostid }}"
+        validate_certs: no
+        method: GET
+      register: lsapplication 
+
+    - set_fact:
+        numlsapp: "{{ lsapplication.json.result | ret_no_of_result }}"
+
+    - set_fact:
+        appid: "{{ lsapplication.json.result[0].id }}"
+      when: numlsapp != "0"
+
+    when: hostid is defined
+
+  # Pre-flight check for number of result with lsapplication
+  - fail:
+      msg: could not specify source VM with name because of incorrect name or duplication.
+    when: numlsapp != "1"
+
+
+#- block:
+  # Filter all the available backups if the jobclass is not specified
+  - block: 
         - name: get the image list select the image from (for all the job_classes)
           uri: 
-            url: "{{ act_api_info }}/lsbackup?filtervalue={{ 'appid=' | urlencode }}{{ lsapplication.json.result[0].id }}&sessionid={{ act_sessionid }}"
+            url: "{{ act_api_info }}/lsbackup?filtervalue={{ 'appid=' | urlencode }}{{ appid }}&sessionid={{ act_sessionid }}"
             validate_certs: no
           register: lsbackup
         - set_fact:
             image_list: "{{ lsbackup }}"
-      when: act_job_class == ''
+    when: act_job_class == ''
 
     # Filter all the backup images if the jobclass is specified.
-    - block:
+  - block:
         - name: get the image list select the image from (for {{ act_job_class }} job_class)
           uri: 
-            url: "{{ act_api_info }}/lsbackup?filtervalue={{ 'appid=' | urlencode }}{{ lsapplication.json.result[0].id }}{{ '&jobclass=' | urlencode }}{{ act_job_class | urlencode }}&sessionid={{ act_sessionid }}"
+            url: "{{ act_api_info }}/lsbackup?filtervalue={{ 'appid=' | urlencode }}{{ appid }}{{ '&jobclass=' | urlencode }}{{ act_job_class | urlencode }}&sessionid={{ act_sessionid }}"
             validate_certs: no
           register: lsbackup
         - set_fact:
             image_list: "{{ lsbackup }}"
-      when: act_job_class != ''
+    when: act_job_class != ''
 
     # Selecting the image to mount based on the restoretime and strict_poliocy
-    - name: selecting an image to mount
-      uri:
+  - name: selecting an image to mount
+    uri:
         url: "{{ act_api_info }}/lsbackup?argument={{ item.backupname }}&sessionid={{ act_sessionid }}"
         validate_certs: no
-      register: image 
-      with_items: 
+    register: image 
+    with_items: 
         - "{{ image_list.json.result }}"
 
-    - name: save the image name to facts
-      set_fact: 
+  - name: save the image name to facts
+    set_fact: 
         image_name: "{{ image | get_image_name (act_restoretime, strict_policy) }}" # Custom filter plugin
-      when: image is defined
+    when: image is defined
+
   when: act_imagename == ''
+
+- set_fact:
+    image_name: "{{ act_imagename }}"
+  when: act_imagename != ''
 
 - name: non-blocking mount operations
   set_fact: 
@@ -124,22 +172,58 @@
     block_mode: ""
   when: act_nowait_mount != true
 
-- name: specify Physical RDM option
-  set_fact: 
-    physicalrdm: "&physicalrdm"
-  when: vm_physicalrdm == "true"
+- block:
+  # For VMware VM
+  - name: specify Physical RDM option
+    set_fact: 
+      physicalrdm: "&physicalrdm"
+    when: vm_physicalrdm == "true"
 
-- name: Not specify Physical RDM option
-  set_fact: 
-    physicalrdm: ""
-  when: vm_physicalrdm != "true"
+  - name: Not specify Physical RDM option
+    set_fact: 
+      physicalrdm: ""
+    when: vm_physicalrdm != "true"
 
-# Trigger appawre mount
-- name: New VM mount 
-  uri:
-    url: "{{ act_api_task}}/mountimage?image={{ image_name }}&mgmtserver={{ mgmt_host_id }}&esxhost={{ esx_host_id }}&vmname={{ vm_name }}&datastore={{ vm_datastore }}{{ physicalrdm }}&label={{ act_imagelabel }}{{ block_mode }}&sessionid={{ act_sessionid }}&restoreoption={{ 'restoremacaddr=' | urlencode }}{{ vm_restoremac }}{{ ',mapdiskstoallesxhosts=' | urlencode}}{{ vm_mapdiskstoallesx }}"
-    method: POST
-    validate_certs: no
-    timeout: 1200
-  async: 0
-  when: apptype == "VMBackup" 
+  # Trigger new VM mount
+  - name: New VM mount with mgmtserver
+    uri:
+      url: "{{ act_api_task}}/mountimage?image={{ image_name }}&mgmtserver={{ mgmt_host_id }}&esxhost={{ esx_host_id }}&vmname={{ vm_name }}&datastore={{ vm_datastore }}{{ physicalrdm }}&label={{ act_imagelabel }}{{ block_mode }}&sessionid={{ act_sessionid }}&restoreoption={{ 'restoremacaddr=' | urlencode }}{{ vm_restoremac }}{{ ',mapdiskstoallesxhosts=' | urlencode}}{{ vm_mapdiskstoallesx }}"
+      method: POST
+      validate_certs: no
+      timeout: 1200
+      async: 0
+    when: mgmt_host_id is defined 
+
+  - name: New VM mount without mgmtserver
+    uri:
+      url: "{{ act_api_task}}/mountimage?image={{ image_name }}&esxhost={{ esx_host_id }}&vmname={{ vm_name }}&datastore={{ vm_datastore }}{{ physicalrdm }}&label={{ act_imagelabel }}{{ block_mode }}&sessionid={{ act_sessionid }}&restoreoption={{ 'restoremacaddr=' | urlencode }}{{ vm_restoremac }}"
+      method: POST
+      validate_certs: no
+      timeout: 1200
+      async: 0
+    when: mgmt_host_id is not defined 
+
+  when: vm_type == "vmware"
+
+- block:
+  # For Hyper-V
+  # Trigger new VM mount
+  - name: New VM mount with mgmtserver
+    uri:
+      url: "{{ act_api_task}}/mountimage?image={{ image_name }}&mgmtserver={{ mgmt_host_id }}&esxhost={{ esx_host_id }}&vmname={{ vm_name }}&datastore={{ vm_datastore | urlencode }}&label={{ act_imagelabel }}{{ block_mode }}&sessionid={{ act_sessionid }}"
+      method: POST
+      validate_certs: no
+      timeout: 1200
+      async: 0
+    when: mgmt_host_id is defined 
+
+  - name: New VM mount without mgmtserver
+    uri:
+      url: "{{ act_api_task}}/mountimage?image={{ image_name }}&esxhost={{ esx_host_id }}&vmname={{ vm_name }}&datastore={{ vm_datastore | urlencode }}&label={{ act_imagelabel }}{{ block_mode }}&sessionid={{ act_sessionid }}"
+      method: POST
+      validate_certs: no
+      timeout: 1200
+      async: 0
+    when: mgmt_host_id is not defined 
+
+  when: vm_type == "hyperv"

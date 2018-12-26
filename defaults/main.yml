@@ -37,16 +37,19 @@ act_imagename: ''
 act_imagelabel: 'Ansible_Playbook'
 
 # For NewVM Mount
-# vCenter Server or ESXi host
+# vCenter Server or System Center (for Hyper-V)
 vm_mgmtserver: ''
-# Source ESXi host
+# VMware or Hyper-V
+vm_type: 'vmware'
+# Source ESXi or Hyper-V host
 vm_src_esxhost: ''
-# Target ESXi host
+# Target ESXi or Hyper-V host
 vm_tgt_esxhost: ''
 # VM name for provisioning
 vm_name: ''
-# Target datastore name
+# Target datastore or directory name
 vm_datastore: ''
+## Only for vSphere Environment
 # Type of RDM volumes (Virtual RDM is default)
 vm_physicalrdm: false 
 # Restore VM MAC Address

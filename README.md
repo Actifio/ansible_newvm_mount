@@ -1,7 +1,7 @@
 ansible_newvm_mount
 ======================
 
-This is a ansible role to perform Actifio VMware VM mounts to ESXi hosts as new VM.
+This is a ansible role to perform Actifio VMware or Hyper-V VM mounts to ESXi/Hyper-V hosts as new VM.
 
 Role Variables
 --------------
@@ -20,22 +20,24 @@ Following variables are accepted/required for this role.
 | act_restoretime  | Desired time to recover the database to. Based on the time specified, the appropriate image will be selected (if an image is not specified). If a recovery image is not availble for the stipulated restore time, and if the strict_policy is set to no, then the closest image to the restore time will be selected. | N
 | strict_policy    | See act_restoretime | N
 | act_job_class    | snapshot, dedup, dedupasync, liveclone, syncback and OnVault. If not specified would select any based on the Restore time, without any preference to the jobclass. | N
+| act_imagename    | Actifio Image Name to be mounted. This parameter overrides act_appname, act_restoretime and act_job_class | N 
 | act_nowait_mount  | If set to true waits for the mount job to complete. Else return after submitting the job. | N
 | act_imagelabel   | Label for mounted image. Default is 'Ansible_Playbook'. | N
-| vm_src_esxhost 	   | Source ESXi host where the VM is protected from. | Y
-| vm_tgt_esxhost 	   | Target ESXi host where the VM to be mounted. | Y
-| vm_mgmtserver    | vCenter Server hostname of target ESXi host. Must be same with hostname which is registered within Actifio appliance. | Y
+| vm_src_esxhost 	   | Source ESXi host where the VM is protected from. (Using for identifying VM ) | N
+| vm_tgt_esxhost 	   | Target ESXi or Hyper-V host where the VM to be mounted. | Y
+| vm_mgmtserver    | vCenter Server or System Center hostname of target ESXi/Hyper-V host. Must be same with hostname which is registered within Actifio appliance. | N
+| vm_type          | Need to specify vmware or hyperv. | Y
 | vm_name	   | New VM name. | Y
-| vm_datastore	   | Target datastore which is located on new VM's vmx, swap and RDM map file. (VM itself will be mounted to ESXi host as RDM) | Y
-| vm_physicalrdm   | Type of RDM volumes. Default is virtual RDM. | N
-| vm_restoremac:   | Restore original MAC address to the new VM. Default is false. | N
-| vm_mapdiskstoallesx      | Map RDM volumes to all ESXi hosts that are belong to the cluster. Default is false. | N
+| vm_datastore	   | Target datastore or directory path which is located on new VM's meta, swap and RDM map file. (VM itself will be mounted to ESXi/Hyper-V host as RDM) | Y
+| vm_physicalrdm   | Type of RDM volumes. Default is virtual RDM. (VMware Only)| N
+| vm_restoremac:   | Restore original MAC address to the new VM. Default is false. (VMware Only) | N
+| vm_mapdiskstoallesx      | Map RDM volumes to all ESXi hosts that are belong to the cluster. Default is false. (VMware Only) | N
 
 
 Example Playbook
 ----------------
 
-### Mount VM image as New VM Example
+### Mount VMware VM image as New VM Example
 
 ```
 - name: testng mount image as new vm
