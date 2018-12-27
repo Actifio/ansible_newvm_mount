@@ -45,7 +45,7 @@ Example Playbook
   become: yes
   become_method: sudo
   roles:
-    - { role: ansible_appaware_mount, act_appliance: my-actifio, act_user: ansible, act_pass: mypassword }
+    - { role: ansible_newvm_mount, act_appliance: my-actifio, act_user: ansible, act_pass: mypassword }
   vars:
     act_vendorkey: "{{ contact CSE to get yours }}"
     act_appname: "SourceVM"
