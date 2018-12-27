@@ -118,15 +118,11 @@ def get_image_name (values, resttime, strict):
     else:
         return ""
 
-def ret_no_of_result (results):
-    return len(results)
-
 class FilterModule(object):
     def filters(self):
         return {
             'net_interface_list': net_interface_list, 
             'get_image_name': get_image_name, 
-            'array_to_csv': array_to_csv,
-            'ret_no_of_result': ret_no_of_result
+            'array_to_csv': array_to_csv
             }
         

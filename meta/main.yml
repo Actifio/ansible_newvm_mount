@@ -1,6 +1,6 @@
 galaxy_info:
   author: Hiroshi Takeuchi
-  description: Ansible role for mounting VMware VM with Actifio as new VM.
+  description: Ansible role for mounting VMware/Hyper-V VM with Actifio as new VM.
   company: Actifio
   license: MIT
   min_ansible_version: 2.3
